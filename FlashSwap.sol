@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Unlicense
-pragma solidity 0.8.20;
-
-import "hardhat/console.sol";
+pragma solidity 0.6.6;
+pragma experimental ABIEncoderV2;
 
 // Uniswap interface and library imports
 import "./libraries/UniswapV2Library.sol";
@@ -11,39 +10,28 @@ import "./interfaces/IUniswapV2Router02.sol";
 import "./interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IUniswapV2Factory.sol";
 import "./interfaces/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 
 
 
-contract PancakeSushi is Ownable {
+contract PancakeSushi {
     using SafeERC20 for IERC20;
+    address private owner;
+    modifier onlyOwner() {
+    require(msg.sender == owner, "Caller is not the owner");
+    _;
+    }
     //Factory and routing address
     address private PANCAKE_FACTORY = 0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73;
     address private PANCAKE_ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
     address private SUSHI_FACTORY = 0xc35DADB65012eC5796536bD9864eD8773aBc74C4;
     address private SUSHI_ROUTER = 0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506;    
 
-    address private constant WBNB_ADDRESS = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    address private constant USDT_ADDRESS = 0x55d398326f99059fF775485246999027B3197955;
+    address private constant token0 = USDT_ADDRESS;
 
-
-    uint256 private deadline = block.timestamp + 1 days;
     uint256 private constant MAX_INT =
         115792089237316195423570985008687907853269984665640564039457584007913129639935;
 
-    constructor(
-        address _PANCAKE_FACTORY,
-        address _PANCAKE_ROUTER,
-        address _SUSHI_FACTORY,
-        address _SUSHI_ROUTER,
-        address initialOwner
-    ) Ownable(initialOwner) {
-        PANCAKE_FACTORY = _PANCAKE_FACTORY;
-        PANCAKE_ROUTER = _PANCAKE_ROUTER;
-        SUSHI_FACTORY = _SUSHI_FACTORY;
-        SUSHI_ROUTER = _SUSHI_ROUTER;
-    }
-    
-    //
     function checkArbitrageOpportunity(
         address token1,
         address token2,
@@ -59,6 +47,17 @@ contract PancakeSushi is Ownable {
 
         // Get amounts from SushiSwap
         sushiSwapAmount = IUniswapV2Router01(SUSHI_ROUTER).getAmountsOut(amountIn, path)[1];
+    }
+    constructor (
+        address _PANCAKE_FACTORY,
+        address _PANCAKE_ROUTER,
+        address _SUSHI_FACTORY,
+        address _SUSHI_ROUTER
+    ) public {
+        PANCAKE_FACTORY = _PANCAKE_FACTORY;
+        PANCAKE_ROUTER = _PANCAKE_ROUTER;
+        SUSHI_FACTORY = _SUSHI_FACTORY;
+        SUSHI_ROUTER = _SUSHI_ROUTER;
     }
 
 
@@ -85,11 +84,14 @@ contract PancakeSushi is Ownable {
         address factory,
         address router
     ) private returns (uint256) {
+        uint256 deadline = block.timestamp + 1 days;
+
+        IERC20(_fromToken).approve(address(router), MAX_INT);
         address pair = IUniswapV2Factory(factory).getPair(
             _fromToken, 
             _toToken
         );
-        require(pair != WBNB_ADDRESS, "Pool does not exist");
+        require(pair != address(0), "Pool does not exist");
         //Calculate Amount Out
         address[] memory path = new address[](2);
         path[0] = _fromToken;
@@ -129,33 +131,26 @@ contract PancakeSushi is Ownable {
     // Address updates
     mapping(string => address) private tokenAddresses;
 
+    // Function to update token address, restricted to only the owner
     function updateTokenAddress(string memory tokenSymbol, address newAddress) public onlyOwner {
-        require(newAddress != WBNB_ADDRESS, "PancakeSushi: new address is the zero address");
+        require(newAddress != address(0), "New address is the zero address");
         tokenAddresses[tokenSymbol] = newAddress;
     }
     // Safe approvals
     function executeSafeApprove(address token, address spender) private {
-        require(token != WBNB_ADDRESS, "PancakeSushi: token address is the zero address");
-        require(spender != WBNB_ADDRESS, "PancakeSushi: spender address is the zero address");
+        require(token != token0, "PancakeSushi: token address is the zero address");
+        require(spender != token0, "PancakeSushi: spender address is the zero address");
         IERC20(token).approve(spender, MAX_INT);
     }
     function startArbitrage(address _tokenBorrow, uint256 _amount) external {
-        console.log("Starting Arbitrage with token: %s, amount: %s", _tokenBorrow, _amount);
 
-        address pair = IUniswapV2Factory(PANCAKE_FACTORY).getPair(_tokenBorrow, WBNB_ADDRESS);
+        address pair = IUniswapV2Factory(PANCAKE_FACTORY).getPair(_tokenBorrow, token0);
         require(pair != address(0), "Pool does not exist");
         
-        console.log("Pair Address: %s", pair);
-
-        address token0 = IUniswapV2Pair(pair).token0();
         address token1 = IUniswapV2Pair(pair).token1();
-        
-        console.log("Token0: %s, Token1: %s", token0, token1);
 
         uint amount0Out = _tokenBorrow == token0 ? _amount : 0;
         uint amount1Out = _tokenBorrow == token1 ? _amount : 0;
-
-        console.log("Amount0Out: %s, Amount1Out: %s", amount0Out, amount1Out);
 
         // Encode the data to pass to the flash swap
         bytes memory data = abi.encode(_tokenBorrow, _amount, msg.sender);
@@ -173,7 +168,6 @@ contract PancakeSushi is Ownable {
         bytes calldata _data
     ) external {
         // Ensure this request came from the contract
-        address token0 = IUniswapV2Pair(msg.sender).token0();
         address token1 = IUniswapV2Pair(msg.sender).token1();
         address pair = IUniswapV2Factory(PANCAKE_FACTORY).getPair(
             token0,

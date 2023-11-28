@@ -1,8 +1,11 @@
-import { expect, assert } from ("chai");
-import { ethers } from ("hardhat");
-import {impersonateFundErc20} from ("../utils/utilities");
+import { expect, assert } from "chai";
+import hardhat from "hardhat";
+const { ethers } = hardhat;
+import {impersonateFundErc20} from "../utils/utilities.js";
 
-import { abi } from ("../artifacts/contracts/interfaces/IERC20.sol/IERC20.json");
+import abi from '../artifacts/contracts/interfaces/IERC20.sol/IERC20.json' assert { type: 'json' };
+
+
 
 const provider = waffle.provider;
 
@@ -11,7 +14,7 @@ describe("Token Contract", () => {
     BORROW_AMOUNT = undefined,
     FUND_AMOUNT = undefined,
     initialFundingHuman = undefined,  
-    txArbitrage = undefined,
+    txArbitrage = undefined
     totalGasUSD = undefined
 
   
