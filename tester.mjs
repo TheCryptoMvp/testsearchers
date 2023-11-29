@@ -1,9 +1,9 @@
-import { expect, assert } from "chai";
-import hardhat from "hardhat";
-const { ethers } = hardhat;
-import {impersonateFundErc20} from "../utils/utilities.js";
+import { expect, assert } from 'chai'
+import {impersonateFundErc20} from '../utils/utilities.js'
+import { ethers } from ('@nomiclabs/hardhat-ethers')
 
-import abi from '../artifacts/contracts/interfaces/IERC20.sol/IERC20.json' assert { type: 'json' };
+import abi from ('../artifacts/contracts/interfaces/IERC20.sol/IERC20.json');
+
 
 
 
@@ -34,7 +34,7 @@ describe("Token Contract", () => {
     const SUSHI_FACTORY = "0xc35DADB65012eC5796536bD9864eD8773aBc74C4";
     const SUSHI_ROUTER = "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506";
 
-    [owner] = await ethers.getSigners();
+    const  [owner] = await ethers.getSigners();
 
     // Ensure that the WHALE has a balance
     const whale_balance = await provider.getBalance(USDT_WHALE);
@@ -48,11 +48,11 @@ describe("Token Contract", () => {
     console.log(`FlashSwap contract deployed at address: ${FLASHSWAP.address}`);
 
     // Configure our borrowing
-    const borrowAmountHuman ="100";
-    BORROW_AMOUNT = ethers.utils.parseUnits(borrowAmountHuman, DECIMALS);
+    const borrowAmountHuman = "100"
+    BORROW_AMOUNT = ethers.utils.parseUnits(borrowAmountHuman, DECIMALS)
     // Configure funding - FOR TESTING ONLY
-    initialFundingHuman ="1000";
-    FUND_AMOUNT = ethers.utils.parseUnits(initialFundingHuman, DECIMALS);
+    initialFundingHuman ="1000"
+    FUND_AMOUNT = ethers.utils.parseUnits(initialFundingHuman, DECIMALS)
 
     // Fund our contract - FOR TESTING ONLY
     await impersonateFundErc20(
@@ -61,12 +61,12 @@ describe("Token Contract", () => {
       FLASHSWAP.address,
       initialFundingHuman,
       { gasLimit: 8000000 } // Gas test
-    );
-  });
+    )
+  })
   
   describe("Arbitrage Execution", () => {
-    it("ensures the contract is funded", async () =>{
-      console.log("Checking contract funding...");
+    it('ensures the contract is funded', async () =>{
+      console.log('Checking contract funding...');
       const flashSwapBalance = await FLASHSWAP.getBalanceOfToken(
         BASE_TOKEN_ADDRESS
       );
@@ -78,63 +78,54 @@ describe("Token Contract", () => {
       console.log(`Contract funded with: ${flashSwapBalanceHuman} tokens`);
 
       expect(Number(flashSwapBalanceHuman)).equal(Number(initialFundingHuman));
-
     });
-
-    it("executes the arbitrage", async () => {
-      console.log("Executing arbitrage...");
+    it('executes the arbitrage', async () => {
+      console.log('Executing arbitrage...');
       const GAS_LIMIT = 8000000; // Adjust this value based on your needs
-  
       try {
           txArbitrage = await FLASHSWAP.startArbitrage(BASE_TOKEN_ADDRESS, BORROW_AMOUNT, {
               gasLimit: GAS_LIMIT
           });
           console.log(`Arbitrage transaction hash: ${txArbitrage.hash}`);
-  
           assert(txArbitrage);
-  
           // ... rest of your test code ...
       } catch (error) {
-          console.error("Error executing arbitrage:", error);
+          console.error('Error executing arbitrage:', error);
       }
       // Print balances
       const contractBalanceWBNB = await FLASHSWAP.getBalanceOfToken(WBNB);
       const formattedBalWBNB = Number(
         ethers.utils.formatUnits(contractBalanceWBNB, DECIMALS)
       );
-      console.log("Balance of WBNB: " + formattedBalWBNB);
+      console.log('Balance of WBNB: ' + formattedBalWBNB);
       const contractBalanceUSDT = await FLASHSWAP.getBalanceOfToken(USDT);
       const formattedBalUSDT = Number(
         ethers.utils.formatUnits(contractBalanceUSDT, DECIMALS)
       );
-      console.log("Balance of USDT: " + formattedBalUSDT);
+      console.log('Balance of USDT: ' + formattedBalUSDT);
 
       describe('Transaction Tests', () => {
-        it("provides GAS output", async () => {
-          const txReceipt = await provider.getTransactionReceipt(txArbitrage.hash);
-          const effGasPrice = ethers.BigNumber.from(txReceipt.effectiveGasPrice);
-          const txGasUsed = ethers.BigNumber.from(txReceipt.gasUsed);
-      
+        it('Provides GAS output', async () => {
+          const txReceipt = await provider.getTransactionReceipt(txArbitrage.hash)
+          const effGasPrice = ethers.BigNumber.from(txReceipt.effectiveGasPrice)
+          const txGasUsed = ethers.BigNumber.from(txReceipt.gasUsed)      
           // Calculate the total gas used in BNB
-          const gasUsedBNB = effGasPrice.mul(txGasUsed);
-      
+          const gasUsedBNB = effGasPrice.mul(txGasUsed)      
           // Fetch the live BNB price in USD
-          const bnbPriceUSD = await getBNBPrice();
-      
+          const bnbPriceUSD = await getBNBPrice()      
           // Handle the case where the BNB price couldn't be fetched
           if (!bnbPriceUSD) {
-            console.log('Could not fetch the BNB price.');
-            return;
-          }
-      
+            console.log('Could not fetch the BNB price.')
+            return
+          }      
           // Convert the gas used in BNB to a human-readable format and then to USD
           const totalGasUSD = ethers.utils.formatEther(gasUsedBNB) * bnbPriceUSD;
           console.log(`Total Gas USD: ${totalGasUSD.toFixed(2)}`);
       
           // Use Chai's 'expect' to make the assertion more readable
-          expect(gasUsedBNB.gt(0), 'Gas used should be greater than 0').to.be.true;
-        });
-      });
-    });
-  });
-});
+          expect(gasUsedBNB.gt(0), 'Gas used should be greater than 0').to.be.true
+        })
+      })
+    })
+  })
+})
